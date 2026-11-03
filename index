@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🎣 Рыбалка</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: radial-gradient(1200px 600px at 50% -10%, #0d2029, #05090d 70%);
+    color: #d7e6f0;
+    overflow: hidden;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #app { display: flex; flex-direction: column; height: 100vh; }
+
+  header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 18px;
+    background: linear-gradient(180deg, #0e1a24, #091218);
+    border-bottom: 1px solid #172934;
+    flex-shrink: 0;
+  }
+  h1 {
+    font-size: 16px; letter-spacing: 2px; font-weight: 800;
+    color: #6ee0d6; text-shadow: 0 0 18px rgba(80,220,210,.35);
+  }
+  .chip {
+    font-size: 13px; font-weight: 600; color: #9fc4d4;
+    background: #0c1a22; border: 1px solid #1d3442;
+    padding: 6px 14px; border-radius: 999px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .chip .dot, .row .dot, .item .nm .dot, .mapcard .mname .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    display: inline-block; box-shadow: 0 0 8px currentColor;
+  }
+  .balance-chip {
+    margin-left: auto;
+    font-size: 15px; font-weight: 800; color: #ffd35c;
+    background: linear-gradient(180deg, #2a2410, #16130a);
+    border: 1px solid #6b5a1e;
+    padding: 7px 18px; border-radius: 999px;
+    box-shadow: 0 0 24px rgba(255,200,60,.12) inset;
+  }
+
+  main { flex: 1; display: flex; gap: 12px; padding: 12px; min-height: 0; }
+
+  #stage { flex: 1; position: relative; min-width: 0; }
+  canvas {
+    width: 100%; height: 100%; display: block;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6), 0 0 0 1px #172934;
+    cursor: crosshair;
+  }
+
+  #toast {
+    position: absolute; left: 50%; top: 20px;
+    transform: translate(-50%, -14px);
+    background: rgba(8,22,30,.92);
+    border: 1px solid #2b5566;
+    color: #c8f0ff;
+    padding: 10px 22px; border-radius: 999px;
+    font-size: 14px; font-weight: 700;
+    opacity: 0; pointer-events: none;
+    transition: .25s ease;
+    white-space: nowrap;
+    box-shadow: 0 10px 30px rgba(0,0,0,.6);
+    z-index: 5;
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  .panel {
+    width: 272px; display: flex; flex-direction: column; gap: 10px;
+    overflow-y: auto; flex-shrink: 0;
+  }
+  .card {
+    background: linear-gradient(180deg, #101d26, #0b141a);
+    border: 1px solid #1a2c38;
+    border-radius: 13px;
+    padding: 12px 14px;
+  }
+  .row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px; padding: 4px 0;
+  }
+  .row span { color: #6f8b9d; }
+  .row b { font-weight: 700; display: inline-flex; align-items: center; gap: 6px; color: #cfe6f2; }
+
+  button.act {
+    width: 100%; padding: 12px; border-radius: 12px;
+    border: 1px solid #24505a;
+    background: linear-gradient(180deg, #123039, #0c1d25);
+    color: #8fe8e0; font-weight: 700; font-size: 14px;
+    cursor: pointer; transition: .15s;
+    font-family: inherit;
+  }
+  button.act:hover { background: linear-gradient(180deg, #184049, #0f262f); border-color: #3fd0c9; }
+  button.act:active { transform: scale(.98); }
+
+  .hint {
+    font-size: 12px; line-height: 1.6; color: #5c7788;
+    padding: 10px 6px; text-align: center;
+  }
+
+  /* ---- СЕТКА НАЖИВОК ---- */
+  .baitgrid {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    gap: 5px; margin-top: 10px;
+  }
+  .baitbtn {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 9px;
+    border: 1px solid #1d3442;
+    background: #0a1720;
+    font-size: 19px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: .15s;
+    font-family: inherit;
+    padding: 0;
+    color: #cfe6f2;
+  }
+  .baitbtn:hover { border-color: #3fd0c9; background: #10222c; }
+  .baitbtn.eq {
+    border-color: #2f7d72; background: #0a1d1e;
+    box-shadow: 0 0 10px rgba(80,220,200,.25) inset;
+  }
+  .baitbtn.locked { opacity: .45; cursor: not-allowed; }
+  .baitbtn.locked .lock {
+    position: absolute; bottom: 1px; right: 1px;
+    font-size: 9px;
+    font-style: normal;
+  }
+  .baithelp {
+    font-size: 11px; color: #5c7788; margin-top: 8px;
+    line-height: 1.5; min-height: 16px;
+  }
+  .baithelp .bad { color: #e08080; }
+
+  /* ---------- МОДАЛЬНЫЕ ОКНА ---------- */
+  .backdrop {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(3, 8, 12, .8);
+    backdrop-filter: blur(5px);
+    display: none; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .backdrop.open { display: flex; }
+
+  .modal {
+    width: min(720px, 100%); max-height: 86vh;
+    background: linear-gradient(180deg, #0f1c25, #091116);
+    border: 1px solid #22404f;
+    border-radius: 20px;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 40px 100px rgba(0,0,0,.8);
+    animation: pop .18s ease-out;
+  }
+  @keyframes pop { from { transform: scale(.96); opacity: 0; } }
+
+  .modal-head {
+    display: flex; align-items: center;
+    padding: 16px 22px;
+    border-bottom: 1px solid #172934;
+    background: linear-gradient(180deg, #0d1a22, #0a141a);
+  }
+  .modal-head h2 { font-size: 17px; font-weight: 800; color: #8fe8e0; letter-spacing: .5px; }
+  .close {
+    margin-left: auto; width: 32px; height: 32px;
+    border-radius: 9px; border: 1px solid #24404f;
+    background: #0c1a22; color: #7fa4b8;
+    cursor: pointer; font-size: 14px; font-family: inherit;
+    transition: .15s;
+  }
+  .close:hover { background: #16303c; color: #cfe6f2; }
+
+  .modal-body { padding: 18px 22px 22px; overflow-y: auto; }
+
+  /* садок */
+  .fishlist { display: flex; flex-direction: column; gap: 8px; }
+  .fishrow {
+    display: grid;
+    grid-template-columns: 10px 34px 1fr 90px 90px;
+    align-items: center; gap: 8px;
+    background: #0b161d;
+    border: 1px solid #172934;
+    border-radius: 11px;
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+  .fishrow .fdot { width: 10px; height: 10px; border-radius: 50%; }
+  .fishrow .fi { font-size: 20px; }
+  .fishrow .fn { font-weight: 700; color: #cfe6f2; }
+  .fishrow .fw { color: #7fa4b8; font-size: 13px; text-align: right; }
+  .fishrow .fp { color: #ffd35c; font-weight: 700; text-align: right; font-size: 13px; }
+
+  .totals {
+    display: flex; justify-content: space-between;
+    margin: 16px 0 12px;
+    font-size: 14px; color: #7fa4b8;
+  }
+  .totals b { color: #ffd35c; }
+
+  .big-btn {
+    width: 100%; padding: 14px; border-radius: 13px;
+    border: 1px solid #7a6320;
+    background: linear-gradient(180deg, #3a3010, #221b08);
+    color: #ffd35c; font-weight: 800; font-size: 15px;
+    cursor: pointer; font-family: inherit; transition: .15s;
+  }
+  .big-btn:hover { background: linear-gradient(180deg, #4d3f14, #2b2209); border-color: #c9a336; }
+
+  .empty {
+    text-align: center; padding: 44px 10px;
+    color: #5c7788; font-size: 15px; line-height: 2;
+  }
+  .empty span { font-size: 13px; color: #47606f; }
+
+  /* магазин */
+  .sec {
+    font-size: 13px; letter-spacing: 1.6px; text-transform: uppercase;
+    color: #4f8296; margin: 6px 0 10px; font-weight: 800;
+  }
+  .items { display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; }
+  .item {
+    display: flex; align-items: center; gap: 14px;
+    background: #0b161d;
+    border: 1px solid #172934;
+    border-radius: 12px;
+    padding: 12px 14px;
+  }
+  .item.eq { border-color: #2f7d72; background: #0a1d1e; }
+  .item .ic { font-size: 22px; width: 30px; text-align: center; }
+  .item .inf { flex: 1; min-width: 0; }
+  .item .nm { font-weight: 700; font-size: 14px; color: #cfe6f2; display: flex; align-items: center; gap: 6px; }
+  .item .ds { font-size: 12px; color: #6f8b9d; margin-top: 3px; }
+  .mini {
+    padding: 8px 15px; border-radius: 9px;
+    border: 1px solid #24505a;
+    background: #0f2830; color: #8fe8e0;
+    font-weight: 700; font-size: 13px; cursor: pointer;
+    font-family: inherit; transition: .15s; white-space: nowrap;
+  }
+  .mini:hover { background: #164049; border-color: #3fd0c9; }
+  .mini.buy { border-color: #7a6320; background: #241d08; color: #ffd35c; }
+  .mini.buy:hover { background: #3a2e0c; border-color: #c9a336; }
+  .mini:disabled { opacity: .35; cursor: not-allowed; }
+  .tag {
+    font-size: 11px; font-weight: 800; letter-spacing: .8px;
+    color: #4de0c0; border: 1px solid #2f7d72;
+    padding: 6px 12px; border-radius: 9px;
+    background: #0a1d1e; text-transform: uppercase;
+  }
+
+  /* карта */
+  .maps { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .mapcard {
+    background: linear-gradient(180deg, #0c1a22, #08131a);
+    border: 1px solid #172934;
+    border-radius: 14px;
+    padding: 16px;
+    display: flex; flex-direction: column; gap: 8px;
+    transition: .15s;
+  }
+  .mapcard .micon { font-size: 30px; }
+  .mapcard .mname { font-weight: 800; font-size: 15px; color: #cfe6f2; display: flex; align-items: center; gap: 8px; }
+  .mapcard .mdesc { font-size: 12px; color: #6f8b9d; line-height: 1.55; flex: 1; }
+  .mapcard .mfish { display: flex; flex-wrap: wrap; gap: 5px; }
+  .ftag {
+    font-size: 10.5px; color: #93b8c8;
+    background: #0a1d24; border: 1px solid #1c3644;
+    padding: 3px 7px; border-radius: 6px;
+  }
+  .ftag em { font-style: normal; opacity: .75; margin-left: 3px; font-size: 10px; }
+  .mapcard .mmul { font-size: 12px; color: #ffd35c; font-weight: 700; }
+
+  @media (max-width: 880px) {
+    main { flex-direction: column; }
+    .panel { width: 100%; flex-direction: row; overflow-x: auto; }
+    .panel .card { min-width: 180px; }
+    .panel button.act { min-width: 130px; width: auto; }
+    .hint { display: none; }
+    #stage { min-height: 300px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <h1>🎣 РЫБАЛКА</h1>
+    <div class="chip" id="locChip"><span class="dot"></span><span id="locName">Тихий пруд</span></div>
+    <div class="balance-chip">💰 <span id="balance">0</span></div>
+  </header>
+
+  <main>
+    <div id="stage">
+      <canvas id="game"></canvas>
+      <div id="toast"></div>
+    </div>
+
+    <aside class="panel">
+      <div class="card">
+        <div class="row"><span>Удочка</span><b><span class="dot" id="rodDot"></span><span id="rodName">Бамбуковая</span></b></div>
+        <div class="row"><span>Леска</span><b><span class="dot" id="lineDot"></span><span id="lineName">Нейлон</span></b></div>
+        <div class="row"><span>Прочность</span><b id="lineStr">×1.0</b></div>
+      </div>
+
+      <div class="card">
+        <div class="row"><span>Наживка</span><b id="baitLabel">🪱 Червь</b></div>
+        <div class="baitgrid" id="baitGrid"></div>
+        <div class="baithelp" id="baitHelp"></div>
+      </div>
+
+      <div class="card">
+        <div class="row"><span>В садке</span><b><span id="keepCount">0</span> рыб</b></div>
+        <div class="row"><span>На сумму</span><b id="keepTotal">0 💰</b></div>
+      </div>
+
+      <button class="act" id="btnKeep">🎒 Садок</button>
+      <button class="act" id="btnShop">🏪 Магазин</button>
+      <button class="act" id="btnMap">🗺 Карта водоёмов</button>
+
+      <div class="hint">
+        Кликни по воде — заброс.<br>
+        Пробел — вываживание.<br>
+        Не порви леску!
+      </div>
+    </aside>
+  </main>
+</div>
+
+<div class="backdrop" id="modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modalTitle"></h2>
+      <button class="close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+/* =================================================================
+   РЫБА
+   ================================================================= */
+
+const FISH = {
+  karas:  { name: 'Карась',  icon: '🐟', minW: 0.10, maxW: 0.70,  price: 25, color: '#e0b84a' },
+  plotva: { name: 'Плотва',  icon: '🐟', minW: 0.08, maxW: 0.45,  price: 20, color: '#c8c8a8' },
+  okun:   { name: 'Окунь',   icon: '🐠', minW: 0.20, maxW: 1.30,  price: 35, color: '#7fb069' },
+  lesh:   { name: 'Лещ',     icon: '🐟', minW: 0.40, maxW: 2.60,  price: 40, color: '#b8925a' },
+  shuka:  { name: 'Щука',    icon: '🐡', minW: 1.00, maxW: 5.50,  price: 55, color: '#5f8f5a' },
+  karp:   { name: 'Карп',    icon: '🐟', minW: 2.00, maxW: 9.50,  price: 45, color: '#c9913b' },
+  sudak:  { name: 'Судак',   icon: '🦈', minW: 0.80, maxW: 4.20,  price: 60, color: '#8a9a6a' },
+  forel:  { name: 'Форель',  icon: '🐠', minW: 0.50, maxW: 3.00,  price: 50, color: '#e8a0a0' },
+  som:    { name: 'Сом',     icon: '🐳', minW: 6.00, maxW: 26.0,  price: 70, color: '#5b6f80' },
+  osetr:  { name: 'Осётр',   icon: '🐳', minW: 3.00, maxW: 18.0,  price: 85, color: '#7a8aa0' }
+};
+
+/* =================================================================
+   НАЖИВКИ
+   ================================================================= */
+
+const BAITS = {
+  worm:   { name: 'Червь',    icon: '🪱', price: 0   },
+  corn:   { name: 'Кукуруза', icon: '🌽', price: 0   },
+  maggot: { name: 'Опарыш',   icon: '🐛', price: 40  },
+  dough:  { name: 'Тесто',    icon: '🍞', price: 30  },
+  boilie: { name: 'Бойл',     icon: '🟤', price: 120 },
+  live:   { name: 'Живец',    icon: '🐠', price: 150 },
+  shrimp: { name: 'Креветка', icon: '🦐', price: 100 },
+  frog:   { name: 'Лягушка',  icon: '🐸', price: 180 },
+  caviar: { name: 'Икра',     icon: '🔴', price: 200 }
+};
+
+/* кто на что клюёт — у каждого вида своя наживка */
+const FISH_BAITS = {
+  karas:  ['worm', 'dough'],
+  plotva: ['maggot'],
+  okun:   ['worm', 'live'],
+  lesh:   ['corn', 'dough'],
+  shuka:  ['live', 'frog'],
+  karp:   ['corn', 'boilie'],
+  sudak:  ['live', 'shrimp'],
+  forel:  ['caviar'],
+  som:    ['frog', 'shrimp'],
+  osetr:  ['shrimp', 'live']
+};
+
+/* =================================================================
+   ВОДОЁМЫ
+   ================================================================= */
+
+const LOCATIONS = [
+  {
+    id: 'pond', name: 'Тихий пруд', icon: '🌿', mul: 1.0, accent: '#4de0a0',
+    desc: 'Спокойная заводь. Мелкая рыба клюёт часто — отличное место для новичка.',
+    table: { karas: 38, plotva: 24, okun: 18, lesh: 12, karp: 6, shuka: 2 }
+  },
+  {
+    id: 'river', name: 'Быстрая река', icon: '🌊', mul: 1.35, accent: '#4d9ee0',
+    desc: 'Течение, коряги и хищник. Щука, судак и форель здесь частые гости.',
+    table: { plotva: 14, okun: 18, shuka: 18, sudak: 16, forel: 14, lesh: 10, som: 6, karp: 4 }
+  },
+  {
+    id: 'lake', name: 'Глубокое озеро', icon: '🌙', mul: 1.75, accent: '#a06ee0',
+    desc: 'Тёмные глубины, где живут трофеи. Без прочной лески тут делать нечего.',
+    table: { som: 18, osetr: 14, shuka: 16, karp: 16, sudak: 14, forel: 12, lesh: 6, okun: 4 }
+  }
+];
+
+/* =================================================================
+   СНАСТИ
+   ================================================================= */
+
+const LINES = [
+  { id: 'nylon',  name: 'Нейлон',       strength: 1.0,  maxW: 4,  price: 0,    color: '#c8d8e8', icon: '🧵' },
+  { id: 'fluoro', name: 'Флюорокарбон', strength: 2.4,  maxW: 10, price: 180,  color: '#8fd0f0', icon: '💎' },
+  { id: 'braid',  name: 'Плетёнка',     strength: 5.0,  maxW: 20, price: 750,  color: '#b4dc64', icon: '🟡' },
+  { id: 'kevlar', name: 'Кевлар',       strength: 10.0, maxW: 40, price: 1800, color: '#ff9060', icon: '🔶' }
+];
+
+const RODS = [
+  { id: 'bamboo', name: 'Бамбуковая',    speed: 1.00, price: 0,    color: '#a08060', icon: '🎋' },
+  { id: 'glass',  name: 'Стеклопластик', speed: 1.18, price: 250,  color: '#6a9ac0', icon: '🎣' },
+  { id: 'carbon', name: 'Карбон',        speed: 1.42, price: 900,  color: '#dd4444', icon: '🖤' },
+  { id: 'titan',  name: 'Титановая',     speed: 1.75, price: 2600, color: '#d8e0f0', icon: '⚙' }
+];
+
+/* =================================================================
+   СОСТОЯНИЕ
+   ================================================================= */
+
+let balance    = 0;
+let keep       = [];
+let lineId     = 'nylon';
+let rodId      = 'bamboo';
+let currentBait = 'worm';
+let ownedLines = new Set(['nylon']);
+let ownedRods  = new Set(['bamboo']);
+let ownedBaits = new Set(['worm', 'corn']);
+let locIndex   = 0;
+
+const G = {
+  mode: 'idle',
+  fx: 0, fy: 0,
+  showFloat: false,
+  biteTimer: 0,
+  biteWindow: 0,
+  fish: null,
+  tension: 0,
+  progress: 0,
+  ripples: []
+};
+
+const keys = { space: false };
+
+/* =================================================================
+   CANVAS
+   ================================================================= */
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 900, H = 560;
+
+function resize() {
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width < 2 || rect.height < 2) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width  = Math.round(rect.width  * dpr);
+  canvas.height = Math.round(rect.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  W = rect.width;
+  H = rect.height;
+}
+new ResizeObserver(resize).observe(document.getElementById('stage'));
+window.addEventListener('resize', resize);
+
+/* =================================================================
+   ФОНОВЫЕ РЫБЫ
+   ================================================================= */
+
+let bgFish = [];
+
+function regenerateBgFish() {
+  bgFish = [];
+  const loc = LOCATIONS[locIndex].id;
+  let count, speedBase, sizeBase;
+  if (loc === 'pond')       { count = 12; speedBase = 8;  sizeBase = 9;  }
+  else if (loc === 'river') { count = 9;  speedBase = 26; sizeBase = 12; }
+  else                      { count = 6;  speedBase = 11; sizeBase = 18; }
+
+  for (let i = 0; i < count; i++) {
+    bgFish.push({
+      x: Math.random() * W, y: Math.random() * H,
+      a: Math.random() * Math.PI * 2,
+      sp: speedBase + Math.random() * 18,
+      size: sizeBase + Math.random() * 14,
+      ph: Math.random() * 10
+    });
+  }
+}
+
+/* =================================================================
+   УТИЛИТЫ
+   ================================================================= */
+
+function rr(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function quadX(p0, p1, p2, t) { return (1-t)*(1-t)*p0 + 2*(1-t)*t*p1 + t*t*p2; }
+function quadY(p0, p1, p2, t) { return (1-t)*(1-t)*p0 + 2*(1-t)*t*p1 + t*t*p2; }
+
+let toastTimer = null;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+/* =================================================================
+   ЛОГИКА
+   ================================================================= */
+
+function currentLine() { return LINES.find(l => l.id === lineId); }
+function currentRod()  { return RODS.find(r => r.id === rodId); }
+
+/* Какие рыбы в текущем водоёме клюют на выбранную наживку */
+function getBaitFish() {
+  const tbl = LOCATIONS[locIndex].table;
+  const bait = currentBait;
+  const filtered = {};
+  let total = 0;
+  for (const k in tbl) {
+    if (tbl[k] > 0 && FISH_BAITS[k] && FISH_BAITS[k].includes(bait)) {
+      filtered[k] = tbl[k];
+      total += tbl[k];
+    }
+  }
+  return { table: filtered, total };
+}
+
+function pickFish() {
+  const bf = getBaitFish();
+  if (bf.total <= 0) return null;
+
+  let r = Math.random() * bf.total;
+  let key = null;
+  for (const k in bf.table) {
+    r -= bf.table[k];
+    if (r <= 0) { key = k; break; }
+  }
+  if (!key) key = Object.keys(bf.table)[0];
+
+  const type = FISH[key];
+  const weight = type.minW + Math.pow(Math.random(), 1.7) * (type.maxW - type.minW);
+  return { key, type, weight };
+}
+
+function cast(x, y) {
+  if (G.mode !== 'idle') return;
+
+  const bf = getBaitFish();
+  if (bf.total <= 0) {
+    toast(`🐟 На «${BAITS[currentBait].name}» здесь никто не клюёт`);
+    return;
+  }
+
+  G.mode = 'waiting';
+  G.fx = Math.max(70, Math.min(W - 60, x));
+  G.fy = Math.max(70, Math.min(H - 150, y));
+  G.showFloat = true;
+  G.biteTimer = 1.3 + Math.random() * 3.4;
+  G.ripples.push({ x: G.fx, y: G.fy, r: 6, a: 0.9 });
+  toast(`Заброс на «${BAITS[currentBait].name}»… ждём поклёвки`);
+}
+
+function startFight() {
+  G.mode = 'fighting';
+  G.tension = 12;
+  G.progress = 32;
+  toast('Вываживай! Держи ПРОБЕЛ, но следи за натяжением');
+}
+
+function catchFish() {
+  const f = G.fish;
+  const mul = LOCATIONS[locIndex].mul;
+  const price = Math.max(1, Math.round(f.weight * f.type.price * mul));
+  keep.push({
+    name: f.type.name, icon: f.type.icon, color: f.type.color,
+    weight: f.weight, price
+  });
+  G.ripples.push({ x: G.fx, y: G.fy, r: 8, a: 0.9 });
+  G.mode = 'idle';
+  G.showFloat = false;
+  G.fish = null;
+  G.tension = 0;
+  G.progress = 0;
+  toast(`🎣 Пойман ${f.type.name}! ${f.weight.toFixed(2)} кг · ${price} 💰`);
+  updateUI();
+}
+
+function escapeFish(reason) {
+  G.mode = 'idle';
+  G.showFloat = false;
+  G.fish = null;
+  G.tension = 0;
+  G.progress = 0;
+  toast(reason);
+}
+
+function update(dt) {
+  for (const f of bgFish) {
+    f.ph += dt;
+    if (Math.random() < 0.004) f.a += (Math.random() - 0.5) * 1.1;
+    f.x += Math.cos(f.a) * f.sp * dt;
+    f.y += Math.sin(f.a) * f.sp * dt;
+    if (f.x < -70) f.x = W + 70;
+    if (f.x > W + 70) f.x = -70;
+    if (f.y < -70) f.y = H + 70;
+    if (f.y > H + 70) f.y = -70;
+  }
+
+  for (let i = G.ripples.length - 1; i >= 0; i--) {
+    const r = G.ripples[i];
+    r.r += 78 * dt;
+    r.a -= 0.55 * dt;
+    if (r.a <= 0) G.ripples.splice(i, 1);
+  }
+
+  if (G.mode === 'waiting') {
+    G.biteTimer -= dt;
+    if (G.biteTimer <= 0) {
+      G.mode = 'biting';
+      G.biteWindow = 1.6;
+      G.fish = pickFish();
+      if (!G.fish) { escapeFish('Наживка не подошла…'); return; }
+      toast('❗ ПОКЛЁВКА! Жми ПРОБЕЛ!');
+    }
+  } else if (G.mode === 'biting') {
+    G.biteWindow -= dt;
+    if (G.biteWindow <= 0) escapeFish('Рыба ушла… попробуй ещё');
+  } else if (G.mode === 'fighting') {
+    const line = currentLine();
+    const rod = currentRod();
+    const w = G.fish.weight;
+    const overload = w > line.maxW ? 1.9 : 1.0;
+
+    if (keys.space) {
+      G.tension += ((16 + w * 9) / line.strength) * overload * dt;
+      G.progress += (32 * rod.speed) / (1 + w * 0.075) * dt;
+    } else {
+      G.tension -= 34 * dt;
+      G.progress -= 14 * dt;
+    }
+    G.tension = Math.max(0, G.tension);
+    G.progress = Math.max(0, Math.min(100, G.progress));
+
+    if (G.tension >= 100)      escapeFish('💥 Леска оборвалась! Нужна прочнее');
+    else if (G.progress >= 100) catchFish();
+    else if (G.progress <= 0)   escapeFish('🐠 Рыба сорвалась с крючка…');
+  }
+}
+
+/* =================================================================
+   ОТРИСОВКА — ВОДОЁМЫ
+   ================================================================= */
+
+function drawWater(t) {
+  const loc = LOCATIONS[locIndex].id;
+
+  if (loc === 'pond') {
+    const g = ctx.createLinearGradient(0, 0, W * 0.6, H);
+    g.addColorStop(0, '#14382f'); g.addColorStop(0.5, '#0e2a24'); g.addColorStop(1, '#071a16');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.globalAlpha = 0.045; ctx.strokeStyle = '#8ff0a0'; ctx.lineWidth = 2;
+    for (let i = 0; i < 14; i++) {
+      const y0 = (i / 14) * H + 14;
+      ctx.beginPath();
+      for (let x = 0; x <= W; x += 14) {
+        const y = y0 + Math.sin(x * 0.008 + t * 0.5 + i * 0.9) * 5;
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+
+  } else if (loc === 'river') {
+    const g = ctx.createLinearGradient(0, 0, W * 0.6, H);
+    g.addColorStop(0, '#0d3546'); g.addColorStop(0.5, '#0a2c3c'); g.addColorStop(1, '#04181f');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.globalAlpha = 0.08; ctx.strokeStyle = '#8fd0ff'; ctx.lineWidth = 2;
+    for (let i = 0; i < 16; i++) {
+      const y = (i / 16) * H + 20;
+      const off = (t * 55 + i * 37) % (W + 300) - 150;
+      ctx.beginPath();
+      ctx.moveTo(off - 150, y);
+      ctx.quadraticCurveTo(off, y + Math.sin(i + t * 1.5) * 4, off + 150, y);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+  } else {
+    const g = ctx.createLinearGradient(0, 0, W * 0.6, H);
+    g.addColorStop(0, '#0e1a3a'); g.addColorStop(0.5, '#0a1230'); g.addColorStop(1, '#04060f');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 6; i++) {
+      const x = (i / 6) * W + Math.sin(t * 0.4 + i * 1.3) * 40;
+      const g2 = ctx.createLinearGradient(x, 0, x + 150, H);
+      g2.addColorStop(0, 'rgba(160,200,255,0.08)');
+      g2.addColorStop(0.7, 'rgba(160,200,255,0.02)');
+      g2.addColorStop(1, 'rgba(160,200,255,0)');
+      ctx.fillStyle = g2;
+      ctx.beginPath();
+      ctx.moveTo(x - 20, 0); ctx.lineTo(x + 40, 0);
+      ctx.lineTo(x + 220, H); ctx.lineTo(x + 60, H);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  const vg = ctx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.25, W/2, H/2, Math.max(W,H)*0.78);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(0,0,0,0.6)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+}
+
+function drawBgFish() {
+  const loc = LOCATIONS[locIndex].id;
+  const tint = loc === 'pond' ? '#8ff0a0' : loc === 'river' ? '#8fd0ff' : '#a0a8ff';
+  ctx.save();
+  ctx.globalAlpha = 0.13; ctx.fillStyle = tint;
+  for (const f of bgFish) {
+    ctx.save();
+    ctx.translate(f.x, f.y); ctx.rotate(f.a);
+    const wag = Math.sin(f.ph * 4) * 0.4;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, f.size, f.size * 0.42, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-f.size * 0.82, 0);
+    ctx.lineTo(-f.size * 1.65, -f.size * 0.55 + wag * f.size * 0.35);
+    ctx.lineTo(-f.size * 1.65,  f.size * 0.55 + wag * f.size * 0.35);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawLilyPad(x, y, r, t) {
+  const bob = Math.sin(t * 0.8 + x * 0.01) * 1.5;
+  ctx.save();
+  ctx.translate(x, y + bob);
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0.35, Math.PI * 2 - 0.35);
+  ctx.lineTo(0, 0); ctx.closePath();
+  ctx.fillStyle = 'rgba(30,90,60,0.65)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(80,180,110,0.3)'; ctx.lineWidth = 0.8;
+  for (let i = 0; i < 7; i++) {
+    const a = 0.35 + (Math.PI * 2 - 0.7) * i / 6;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(a) * r * 0.85, Math.sin(a) * r * 0.85);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawReeds(t) {
+  const positions = [{x:0.91,h:0.45},{x:0.94,h:0.52},{x:0.97,h:0.38}];
+  ctx.save();
+  for (const p of positions) {
+    const bx = p.x * W, by = H + 6, ht = p.h * H;
+    const sway = Math.sin(t * 1.2 + bx * 0.01) * 4;
+    ctx.beginPath();
+    ctx.moveTo(bx, by);
+    ctx.quadraticCurveTo(bx + sway * 0.5, by - ht * 0.5, bx + sway, by - ht);
+    ctx.strokeStyle = 'rgba(40,80,50,0.85)'; ctx.lineWidth = 3; ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(bx + sway, by - ht, 3, 7, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(70,50,30,0.9)'; ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawRocks(t) {
+  const rocks = [
+    { x: 0.18, y: 0.9, w: 70, h: 28 },
+    { x: 0.5,  y: 0.94, w: 90, h: 32 },
+    { x: 0.78, y: 0.9, w: 58, h: 24 }
+  ];
+  for (const r of rocks) {
+    ctx.save(); ctx.translate(r.x * W, r.y * H);
+    ctx.beginPath(); ctx.ellipse(0, 0, r.w, r.h, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(20,30,40,0.85)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(60,90,110,0.4)'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-r.w * 0.2, -r.h * 0.6, r.w * 0.3, 3.5, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(200,240,255,0.14)'; ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawParticles(t) {
+  ctx.save();
+  for (let i = 0; i < 34; i++) {
+    const x = ((i * 137 + t * 8) % (W + 100)) - 50;
+    const y = (i * 79) % H;
+    const a = 0.08 + Math.abs(Math.sin(t * 2 + i)) * 0.08;
+    ctx.beginPath(); ctx.arc(x, y, 1.2, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(180,200,255,${a})`; ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawEnv(t) {
+  const loc = LOCATIONS[locIndex].id;
+  if (loc === 'pond') {
+    drawLilyPad(W * 0.78, H * 0.22, 32, t);
+    drawLilyPad(W * 0.88, H * 0.38, 24, t);
+    drawLilyPad(W * 0.16, H * 0.66, 28, t);
+    drawReeds(t);
+  } else if (loc === 'river') {
+    drawRocks(t);
+  } else {
+    drawParticles(t);
+  }
+}
+
+/* =================================================================
+   УДОЧКА
+   ================================================================= */
+
+function rodTip() { return { x: W * 0.115, y: H * 0.84 }; }
+
+function drawRod(t) {
+  const tip = rodTip();
+  const rod = currentRod();
+  let style;
+  if (rod.id === 'bamboo')      style = { dark: '#120c06', main: '#5a4028', hi: '#8a6a40', accent: null };
+  else if (rod.id === 'glass')  style = { dark: '#0a1520', main: '#2a4a68', hi: '#6a9ac0', accent: null };
+  else if (rod.id === 'carbon') style = { dark: '#050508', main: '#1a1a22', hi: '#4a4a5a', accent: '#d44' };
+  else                          style = { dark: '#2a2a30', main: '#a0a8b8', hi: '#e8f0ff', accent: null };
+
+  ctx.save(); ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-60, H + 80);
+  ctx.quadraticCurveTo(-10, H * 0.94, tip.x, tip.y);
+  ctx.strokeStyle = style.dark; ctx.lineWidth = 10; ctx.stroke();
+  ctx.strokeStyle = style.main; ctx.lineWidth = 6.5; ctx.stroke();
+  ctx.strokeStyle = style.hi;   ctx.lineWidth = 2.2; ctx.stroke();
+
+  if (style.accent) {
+    for (let i = 0.4; i < 0.95; i += 0.12) {
+      const px = quadX(-60, -10, tip.x, i);
+      const py = quadY(H + 80, H * 0.94, tip.y, i);
+      ctx.beginPath(); ctx.arc(px, py, 2.4, 0, Math.PI * 2);
+      ctx.fillStyle = style.accent; ctx.fill();
+    }
+  }
+
+  if (rod.id === 'titan') {
+    ctx.save();
+    ctx.globalAlpha = 0.5 + Math.sin(t * 3) * 0.2;
+    ctx.beginPath();
+    ctx.moveTo(-60, H + 80);
+    ctx.quadraticCurveTo(-10, H * 0.94, tip.x, tip.y);
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.1; ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.beginPath(); ctx.arc(tip.x, tip.y, 4, 0, Math.PI * 2);
+  ctx.fillStyle = style.dark; ctx.fill();
+  ctx.beginPath(); ctx.arc(tip.x, tip.y, 1.8, 0, Math.PI * 2);
+  ctx.fillStyle = rod.color; ctx.fill();
+  ctx.restore();
+}
+
+/* =================================================================
+   ЛЕСКА + ПОПЛАВОК
+   ================================================================= */
+
+function getLineStyle(tensionRatio) {
+  const l = currentLine();
+  if (l.id === 'nylon')  return { color: `rgba(200,220,240,${0.5 + tensionRatio * 0.3})`, width: 1.2 };
+  if (l.id === 'fluoro') return { color: `rgba(150,210,240,${0.35 + tensionRatio * 0.3})`, width: 1.0 };
+  if (l.id === 'braid')  return { color: `rgba(180,220,100,${0.7 + tensionRatio * 0.2})`, width: 1.8 };
+  return                        { color: `rgba(255,150,80,${0.8 + tensionRatio * 0.15})`, width: 2.2 };
+}
+
+function drawFloat(t) {
+  const tip = rodTip();
+  let fx = G.fx, fy = G.fy;
+  if (G.mode === 'fighting') {
+    const k = G.progress / 100;
+    fx = G.fx + (tip.x - G.fx) * k * 0.72;
+    fy = G.fy + (tip.y - G.fy) * k * 0.72;
+  }
+
+  const tensionRatio = G.mode === 'fighting' ? G.tension / 100 : 0;
+  const lineStyle = getLineStyle(tensionRatio);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(tip.x, tip.y);
+  if (G.mode === 'fighting') {
+    const j = tensionRatio * 4;
+    ctx.lineTo(fx + (Math.random() - 0.5) * j, fy + (Math.random() - 0.5) * j);
+    ctx.strokeStyle = tensionRatio > 0.75 ? 'rgba(255,80,80,0.9)' : lineStyle.color;
+    ctx.lineWidth = lineStyle.width;
+  } else {
+    const mx = (tip.x + fx) / 2, my = (tip.y + fy) / 2 + 26;
+    ctx.quadraticCurveTo(mx, my, fx, fy);
+    ctx.strokeStyle = lineStyle.color;
+    ctx.lineWidth = lineStyle.width;
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  let bob = Math.sin(t * 2.1) * 2;
+  if (G.mode === 'biting')   bob = Math.sin(t * 34) * 6 + 3;
+  if (G.mode === 'fighting') bob = Math.sin(t * 24) * 3;
+
+  ctx.save();
+  ctx.translate(fx, fy + bob);
+
+  ctx.beginPath(); ctx.ellipse(0, 4, 17, 6, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(180,240,255,0.22)'; ctx.lineWidth = 1.4; ctx.stroke();
+
+  ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(0, -19);
+  ctx.strokeStyle = '#ff5b5b'; ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.stroke();
+
+  ctx.beginPath(); ctx.arc(0, -20, 2.6, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffd54a'; ctx.fill();
+
+  ctx.beginPath(); ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
+  ctx.fillStyle = '#f4f4f4'; ctx.fill();
+  ctx.beginPath(); ctx.arc(0, 0, 7.5, Math.PI, Math.PI * 2);
+  ctx.fillStyle = '#e14b4b'; ctx.fill();
+  ctx.beginPath(); ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1; ctx.stroke();
+
+  if (G.mode === 'biting') {
+    ctx.font = 'bold 26px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffd54a';
+    ctx.shadowColor = 'rgba(255,210,70,0.9)'; ctx.shadowBlur = 16;
+    ctx.fillText('!', 0, -36); ctx.shadowBlur = 0;
+  }
+  ctx.restore();
+}
+
+/* =================================================================
+   HUD
+   ================================================================= */
+
+function drawRipples() {
+  for (const r of G.ripples) {
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(150,235,255,${Math.max(0, r.a)})`;
+    ctx.lineWidth = 1.8; ctx.stroke();
+  }
+}
+
+function drawBar(x, y, w, h, p, label, gradFn) {
+  rr(x, y, w, h, h / 2);
+  ctx.fillStyle = 'rgba(4,14,20,0.8)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(120,200,220,0.22)'; ctx.lineWidth = 1.4; ctx.stroke();
+  if (p > 0.005) {
+    ctx.save(); rr(x, y, w, h, h / 2); ctx.clip();
+    const g = ctx.createLinearGradient(x, 0, x + w, 0);
+    gradFn(g); ctx.fillStyle = g; ctx.fillRect(x, y, w * p, h);
+    ctx.restore();
+  }
+  ctx.fillStyle = 'rgba(190,230,245,0.8)';
+  ctx.font = '700 11px system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(label, x + 2, y - 7);
+}
+
+function drawHUD() {
+  if (G.mode !== 'fighting') return;
+  const bw = Math.min(470, W * 0.62), bx = (W - bw) / 2;
+
+  drawBar(bx, H - 108, bw, 13, G.progress / 100, 'ВЫВАЖИВАНИЕ', g => {
+    g.addColorStop(0, '#1f6f8b'); g.addColorStop(1, '#4de0c0');
+  });
+
+  const tr = G.tension / 100;
+  drawBar(bx, H - 72, bw, 15, tr, 'НАТЯЖЕНИЕ ЛЕСКИ', g => {
+    g.addColorStop(0, '#3fd07a'); g.addColorStop(0.55, '#e8d24a');
+    g.addColorStop(0.85, '#f08a3c'); g.addColorStop(1, '#e04b4b');
+  });
+
+  if (tr > 0.72) {
+    const pulse = 0.35 + Math.sin(performance.now() / 90) * 0.3;
+    ctx.save();
+    ctx.globalAlpha = pulse * (tr - 0.72) / 0.28;
+    rr(bx - 4, H - 76, bw + 8, 23, 12);
+    ctx.strokeStyle = '#ff4b4b'; ctx.lineWidth = 2.5;
+    ctx.shadowColor = '#ff4b4b'; ctx.shadowBlur = 20;
+    ctx.stroke(); ctx.restore();
+  }
+}
+
+/* =================================================================
+   ЦИКЛ
+   ================================================================= */
+
+function draw(t) {
+  drawWater(t);
+  drawBgFish();
+  drawEnv(t);
+  drawRipples();
+  drawRod(t);
+  if (G.showFloat) drawFloat(t);
+  drawHUD();
+}
+
+let lastT = performance.now();
+function loop(now) {
+  const dt = Math.min((now - lastT) / 1000, 0.05);
+  lastT = now;
+  update(dt);
+  draw(now / 1000);
+  requestAnimationFrame(loop);
+}
+
+/* =================================================================
+   УПРАВЛЕНИЕ
+   ================================================================= */
+
+canvas.addEventListener('pointerdown', e => {
+  if (G.mode !== 'idle') return;
+  const r = canvas.getBoundingClientRect();
+  cast(e.clientX - r.left, e.clientY - r.top);
+});
+
+window.addEventListener('keydown', e => {
+  if (e.code === 'Escape') { closeModal(); return; }
+  if (document.getElementById('modal').classList.contains('open')) return;
+  if (e.code === 'Space') {
+    e.preventDefault();
+    keys.space = true;
+    if (G.mode === 'biting') startFight();
+  }
+});
+
+window.addEventListener('keyup', e => {
+  if (e.code === 'Space') keys.space = false;
+});
+
+/* =================================================================
+   UI
+   ================================================================= */
+
+function renderBaitGrid() {
+  const grid = document.getElementById('baitGrid');
+  let html = '';
+  for (const id in BAITS) {
+    const b = BAITS[id];
+    const owned = ownedBaits.has(id);
+    const eq = currentBait === id;
+    let cls = 'baitbtn';
+    if (eq) cls += ' eq';
+    if (!owned) cls += ' locked';
+    html += `<button class="${cls}" data-bait="${id}" title="${b.name}${owned ? '' : ' — купить в магазине'}">${b.icon}${owned ? '' : '<i class="lock">🔒</i>'}</button>`;
+  }
+  grid.innerHTML = html;
+  grid.querySelectorAll('.baitbtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.bait;
+      if (!ownedBaits.has(id)) { toast('Наживка не куплена — загляни в магазин'); return; }
+      if (G.mode !== 'idle') { toast('Нельзя менять наживку во время ловли'); return; }
+      if (currentBait === id) return;
+      currentBait = id;
+      updateUI();
+    });
+  });
+}
+
+function updateBaitHelp() {
+  const bf = getBaitFish();
+  const el = document.getElementById('baitHelp');
+  if (bf.total <= 0) {
+    el.innerHTML = `<span class="bad">⚠ Здесь на эту наживку не клюёт</span>`;
+  } else {
+    const names = Object.keys(bf.table).map(k => FISH[k].name).join(', ');
+    el.innerHTML = `Клюёт: <span style="color:#8fb8c8">${names}</span>`;
+  }
+}
+
+function updateUI() {
+  document.getElementById('balance').textContent = balance;
+  document.getElementById('rodName').textContent = currentRod().name;
+  document.getElementById('lineName').textContent = currentLine().name;
+  document.getElementById('lineStr').textContent = '×' + currentLine().strength.toFixed(1);
+  document.getElementById('locName').textContent = LOCATIONS[locIndex].name;
+
+  const chip = document.getElementById('locChip').querySelector('.dot');
+  chip.style.background = LOCATIONS[locIndex].accent;
+  chip.style.color = LOCATIONS[locIndex].accent;
+
+  document.getElementById('rodDot').style.background = currentRod().color;
+  document.getElementById('lineDot').style.background = currentLine().color;
+
+  document.getElementById('baitLabel').innerHTML =
+    `${BAITS[currentBait].icon} ${BAITS[currentBait].name}`;
+
+  document.getElementById('keepCount').textContent = keep.length;
+  const total = keep.reduce((s, f) => s + f.price, 0);
+  document.getElementById('keepTotal').textContent = total + ' 💰';
+
+  renderBaitGrid();
+  updateBaitHelp();
+}
+
+function showModal(title, html) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+}
+
+document.getElementById('modalClose').addEventListener('click', closeModal);
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target.id === 'modal') closeModal();
+});
+
+document.getElementById('btnKeep').addEventListener('click', openKeep);
+document.getElementById('btnShop').addEventListener('click', openShop);
+document.getElementById('btnMap').addEventListener('click', openMap);
+
+/* ---------------- САДОК ---------------- */
+
+function openKeep() {
+  let html = '';
+  if (keep.length === 0) {
+    html = `<div class="empty">Садок пуст 🕸<br><span>Кликни по воде и поймай первую рыбу!</span></div>`;
+  } else {
+    html += `<div class="fishlist">`;
+    for (const f of keep) {
+      html += `
+        <div class="fishrow">
+          <span class="fdot" style="background:${f.color}"></span>
+          <span class="fi">${f.icon}</span>
+          <span class="fn">${f.name}</span>
+          <span class="fw">${f.weight.toFixed(2)} кг</span>
+          <span class="fp">${f.price} 💰</span>
+        </div>`;
+    }
+    html += `</div>`;
+    const total = keep.reduce((s, f) => s + f.price, 0);
+    html += `<div class="totals">
+        <span>Всего рыб: <b>${keep.length}</b></span>
+        <span>Стоимость: <b>${total} 💰</b></span>
+      </div>`;
+    html += `<button class="big-btn" onclick="sellAll()">💰 Продать всю рыбу за ${total}</button>`;
+  }
+  showModal('🎒 Садок', html);
+}
+
+function sellAll() {
+  const total = keep.reduce((s, f) => s + f.price, 0);
+  if (total <= 0) return;
+  balance += total;
+  keep = [];
+  updateUI();
+  openKeep();
+  toast(`Продано на ${total} 💰`);
+}
+
+/* ---------------- МАГАЗИН ---------------- */
+
+function openShop() {
+  // НАЖИВКИ
+  let html = `<h3 class="sec">🪱 Наживки</h3><div class="items">`;
+  for (const b in BAITS) {
+    const bait = BAITS[b];
+    const owned = ownedBaits.has(b);
+    const eq = currentBait === b;
+    html += `
+      <div class="item ${eq ? 'eq' : ''}">
+        <div class="ic">${bait.icon}</div>
+        <div class="inf">
+          <div class="nm">${bait.name}</div>
+          <div class="ds">${owned ? 'Уже есть в арсенале' : 'Купить навсегда — без ограничений'}</div>
+        </div>
+        ${eq ? `<span class="tag">Выбрана</span>`
+             : owned ? `<button class="mini" onclick="equipBait('${b}')">Выбрать</button>`
+                     : `<button class="mini buy" onclick="buyBait('${b}')">${bait.price === 0 ? 'Бесплатно' : bait.price + ' 💰'}</button>`}
+      </div>`;
+  }
+  html += `</div>`;
+
+  // ЛЕСКИ
+  html += `<h3 class="sec">🧵 Лески</h3><div class="items">`;
+  for (const l of LINES) {
+    const owned = ownedLines.has(l.id), eq = lineId === l.id;
+    html += `
+      <div class="item ${eq ? 'eq' : ''}">
+        <div class="ic">${l.icon}</div>
+        <div class="inf">
+          <div class="nm"><span class="dot" style="background:${l.color}"></span>${l.name}</div>
+          <div class="ds">Прочность ×${l.strength.toFixed(1)} · макс. рыба ${l.maxW} кг</div>
+        </div>
+        ${eq ? `<span class="tag">Надето</span>`
+             : owned ? `<button class="mini" onclick="equipLine('${l.id}')">Надеть</button>`
+                     : `<button class="mini buy" onclick="buyLine('${l.id}')">${l.price} 💰</button>`}
+      </div>`;
+  }
+  html += `</div>`;
+
+  // УДОЧКИ
+  html += `<h3 class="sec">🎣 Удочки</h3><div class="items">`;
+  for (const r of RODS) {
+    const owned = ownedRods.has(r.id), eq = rodId === r.id;
+    html += `
+      <div class="item ${eq ? 'eq' : ''}">
+        <div class="ic">${r.icon}</div>
+        <div class="inf">
+          <div class="nm"><span class="dot" style="background:${r.color}"></span>${r.name}</div>
+          <div class="ds">Скорость вываживания ×${r.speed.toFixed(2)}</div>
+        </div>
+        ${eq ? `<span class="tag">Надето</span>`
+             : owned ? `<button class="mini" onclick="equipRod('${r.id}')">Надеть</button>`
+                     : `<button class="mini buy" onclick="buyRod('${r.id}')">${r.price} 💰</button>`}
+      </div>`;
+  }
+  html += `</div>`;
+
+  showModal('🏪 Магазин', html);
+}
+
+function buyBait(id) {
+  const b = BAITS[id];
+  if (!b || ownedBaits.has(id)) return;
+  if (balance < b.price) { toast('Не хватает монет 💰'); return; }
+  balance -= b.price;
+  ownedBaits.add(id);
+  currentBait = id;
+  updateUI();
+  openShop();
+  toast(`Куплена наживка: ${b.name}`);
+}
+
+function equipBait(id) {
+  if (!ownedBaits.has(id)) return;
+  if (G.mode !== 'idle') { toast('Нельзя менять наживку во время ловли'); return; }
+  currentBait = id;
+  updateUI();
+  openShop();
+}
+
+function buyLine(id) {
+  const l = LINES.find(x => x.id === id);
+  if (!l || ownedLines.has(id)) return;
+  if (balance < l.price) { toast('Не хватает монет 💰'); return; }
+  balance -= l.price; ownedLines.add(id); lineId = id;
+  updateUI(); openShop(); toast(`Куплено: ${l.name}`);
+}
+function equipLine(id) {
+  if (!ownedLines.has(id)) return;
+  lineId = id; updateUI(); openShop();
+}
+function buyRod(id) {
+  const r = RODS.find(x => x.id === id);
+  if (!r || ownedRods.has(id)) return;
+  if (balance < r.price) { toast('Не хватает монет 💰'); return; }
+  balance -= r.price; ownedRods.add(id); rodId = id;
+  updateUI(); openShop(); toast(`Куплено: ${r.name}`);
+}
+function equipRod(id) {
+  if (!ownedRods.has(id)) return;
+  rodId = id; updateUI(); openShop();
+}
+
+/* ---------------- КАРТА ---------------- */
+
+function locFishHTML(loc) {
+  const parts = [];
+  for (const k in loc.table) {
+    if (loc.table[k] <= 0) continue;
+    const f = FISH[k];
+    const baits = FISH_BAITS[k] || [];
+    const willBite = baits.includes(currentBait);
+    const baitIcons = baits.map(b => BAITS[b].icon).join('');
+    const style = willBite ? '' : 'opacity:0.35;';
+    const title = 'Наживки: ' + baits.map(b => BAITS[b].name).join(', ');
+    parts.push(`<span class="ftag" style="${style}" title="${title}">${f.icon} ${f.name} <em>${baitIcons}</em></span>`);
+  }
+  return parts.join('');
+}
+
+function openMap() {
+  let html = `<div class="maps">`;
+  LOCATIONS.forEach((l, i) => {
+    const active = i === locIndex;
+    const style = active ? `border-color:${l.accent}; box-shadow: 0 0 0 1px ${l.accent} inset, 0 0 30px ${l.accent}22;` : '';
+    html += `
+      <div class="mapcard" style="${style}">
+        <div class="micon">${l.icon}</div>
+        <div class="mname"><span class="dot" style="background:${l.accent};color:${l.accent}"></span>${l.name}</div>
+        <div class="mdesc">${l.desc}</div>
+        <div class="mfish">${locFishHTML(l)}</div>
+        <div class="mmul">Цена рыбы ×${l.mul}</div>
+        ${active
+          ? `<span class="tag" style="text-align:center">Вы здесь</span>`
+          : `<button class="mini" onclick="gotoLoc(${i})">Поехать</button>`}
+      </div>`;
+  });
+  html += `</div>`;
+  html += `<div style="margin-top:14px;font-size:12px;color:#5c7788;line-height:1.6">
+    💡 На каждой карточке у рыбы показаны наживки, на которые она клюёт.
+    Приглушённые рыбы не реагируют на вашу текущую наживку.
+  </div>`;
+  showModal('🗺 Карта водоёмов', html);
+}
+
+function gotoLoc(i) {
+  if (G.mode !== 'idle') { toast('Сначала закончи вываживание'); return; }
+  locIndex = i;
+  regenerateBgFish();
+  updateUI();
+  closeModal();
+  toast(`Переезд: ${LOCATIONS[i].name}`);
+}
+
+/* =================================================================
+   СТАРТ
+   ================================================================= */
+
+resize();
+regenerateBgFish();
+updateUI();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
